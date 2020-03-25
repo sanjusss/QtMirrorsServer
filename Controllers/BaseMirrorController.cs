@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,19 @@ namespace QtMirrorsServer.Controllers
             }
 
             int prefix = Request.RouteValues["controller"].ToString().Length + 1;
-            string path = TargetUrl + Request.Path.Value.Substring(prefix);
+            if (Request.Path.Value.Length == prefix)
+            {
+                return RedirectPermanent(Request.Path.Value + "/");
+            }
+
+            prefix += 1;
+            string targerUrl = TargetUrl;
+            if (targerUrl.EndsWith('/') == false)
+            {
+                targerUrl += '/';
+            }
+
+            string path = targerUrl + Request.Path.Value.Substring(prefix);
             if (path.EndsWith(".xml"))
             {
                 string content;
@@ -29,11 +42,33 @@ namespace QtMirrorsServer.Controllers
                     content = await client.GetStringAsync(path);
                 }
 
-                content = content.Replace("download.qt-project.org", Request.Host.Value);
+                var mid = new StringBuilder()
+                            .Append(Request.Scheme)
+                            .Append("://")
+                            .Append(Request.Host)
+                            .Append(Request.PathBase)
+                            .Append(Request.Path.Value.Substring(0, prefix)).ToString();
+                content = content.Replace("http://download.qt-project.org/", mid);
                 return Content(content, "text/xml");
             }
             else
             {
+                using (HttpClient client = new HttpClient())
+                {
+                    var res = await client.GetAsync(path, HttpCompletionOption.ResponseHeadersRead);
+                    if (res.Content.Headers.ContentType.MediaType == "text/html")
+                    {
+                        string content = await res.Content.ReadAsStringAsync();
+                        var mid = new StringBuilder()
+                                    .Append(Request.Scheme)
+                                    .Append("://")
+                                    .Append(Request.Host)
+                                    .Append(Request.PathBase)
+                                    .Append(Request.Path.Value.Substring(0, prefix)).ToString();
+                        content = content.Replace(targerUrl, mid);
+                        return Content(content, "text/html");
+                    }
+                }
 #if DEBUG
                 return path;
 #else
