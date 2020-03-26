@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  qtmirrorsserver:
+    image: ${DOCKER_REGISTRY-}qtmirrorsserver
+    build:
+      context: .
+      dockerfile: Dockerfile
